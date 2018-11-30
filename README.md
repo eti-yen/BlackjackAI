@@ -1,3 +1,3 @@
 # Blackjack AI
 
-Ignore the name lol
+Ignore the repository name lol
