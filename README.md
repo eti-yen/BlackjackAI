@@ -1,3 +1,5 @@
 # Blackjack AI
 
-Ignore the repository name lol
+Authors: Kevin Donovan,
+
+Project is run on Python 3.7.1
