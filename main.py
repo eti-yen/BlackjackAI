@@ -33,16 +33,19 @@ class Card:
     def __init__(self, suit, rank):
         self.suit = suit
         self.rank = rank
-        if rank > 9:
+        value = rank + 1
+        if value > 10: # J Q K
             self.value = 10
-        elif rank == 0:
+        elif value == 1: # A
             self.value = 11
         else:
-            self.value = rank + 1
+            self.value = value
     
     def reduce_ace(self):
         if self.value == 11:
             self.value = 1
+            return True
+        return False
     
     def __str__(self):
         suit = Card.suit_symbols[self.suit]
@@ -130,6 +133,11 @@ def build_deck():
     shuffle(deck)
     return deck
 
+def input_yes_no(prompt):
+    if prompt:
+        print(prompt)
+    return input().strip().lower() in ("y", "yes")
+
 def main():
     #The number of times the simulation should be run.
     number_of_runs = 1
@@ -163,13 +171,11 @@ def main():
 
         #Player can choose to make an insurance bet.
         print_hands(player, dealer)
-        print("Make an insurance bet? (y/n)")
-        x = input()
-        print("\n\n")
-        if x == "y":
+        if input_yes_no("Make an insurance bet? (y/n)"):
             insurance = 5.0
         else:
             insurance = 0.0
+        print("\n\n")
 
         #Check for Blackjack
         player_blackjack = 0
@@ -211,9 +217,7 @@ def main():
 
         #Player plays out their hand.
         print_hands(player, dealer)
-        print("Surrender? (y/n)")
-        surrender = input()
-        if surrender == "y":
+        if input_yes_no("Surrender? (y/n)"):
             print("Player surrender, Dealer Wins")
             print_hands(player, dealer)
             funds -= (0.5 * bet)
