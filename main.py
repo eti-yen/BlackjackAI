@@ -19,46 +19,66 @@ from random import shuffle
 #You may split up to having 4 hands in play.
 
 
-class Card():
-    #1 is Ace
-    number = 0
+class Card:
+    
+    suit_symbols = "\u2663\u2666\u2665\u2660"
+    rank_symbols = [
+        "A", "2", "3", "4", "5",
+        "6", "7", "8", "9", "10",
+        "J", "Q", "K"]
+    
+    # suit: 0..3 (clubs, diamonds, hearts, spades)
+    # rank: 0..12
+    
+    def __init__(self, suit, rank):
+        self.suit = suit
+        self.rank = rank
+        if rank > 9:
+            self.value = 10
+        elif rank == 0:
+            self.value = 11
+        else:
+            self.value = rank + 1
+    
+    def reduce_ace(self):
+        if self.value == 11:
+            self.value = 1
+    
+    def __str__(self):
+        suit = Card.suit_symbols[self.suit]
+        rank = Card.rank_symbols[self.rank]
+        return f"{suit}{rank} ({self.value})"
 
-    def getValue(self):
-        return self.number
 
-    def reduceAce(self):
-        if self.number == 11:
-            self.number = 1
-
-
-def printHands(player, dealer):
+def print_hands(player, dealer):
     print("Player Hand:")
     for i in player:
-        print(i.getValue())
-    print("Player Total: " + str(getHandValue(player)))
+        print(i.value)
+    print("Player Total: " + str(get_hand_value(player)))
     print("\nDealer Hand:")
     for i in dealer:
-        print(i.getValue())
-    print("Dealer Total: " + str(getHandValue(dealer)) + "\n")
+        print(i.value)
+    print("Dealer Total: " + str(get_hand_value(dealer)) + "\n")
 
 
-def getHandValue(hand):
-    total = 0
-    for i in hand:
-        total += i.getValue()
-    #If the hand would bust, check if there are any Aces that can be counted as 1 instead of 11.
+def get_hand_value(hand):
+    total = sum(card.value for card in hand)
+    # If the hand would bust, check if there are any
+    # Aces that can be counted as 1 instead of 11.
     if total > 21:
-        for i in hand:
-            if i.getValue() == 11:
-                i.reduceAce()
-                return getHandValue(hand)
+        for card in hand:
+            if card.value == 11:
+                card.reduce_ace()
+                total -= 10
+                if total <= 21:
+                    break
     return total
 
 
-def playHand(player, dealer, deck, current_card, results):
+def play_hand(player, dealer, deck, current_card, results):
     #Player makes decision: 0: Hit, 1: Stand, 2: Double Down, 3: Split
     #Temporarily using manual player until AI logic is created.
-    printHands(player, dealer)
+    print_hands(player, dealer)
     print("Input player action: 0: Hit, 1: Stand, 2: Double Down, 3: Split")
     player_decision = input()
     print("\n\n")
@@ -71,25 +91,25 @@ def playHand(player, dealer, deck, current_card, results):
         hand2 = [player[1]]
         hand2.append(deck[current_card])
         current_card += 1
-        playHand(hand1, dealer, deck, current_card, results)
-        playHand(hand2, dealer, deck, current_card, results)
+        play_hand(hand1, dealer, deck, current_card, results)
+        play_hand(hand2, dealer, deck, current_card, results)
         return
 
     #Get the value of the player's hand.
-    player_total = getHandValue(player)
+    player_total = get_hand_value(player)
 
     #Any other action is taken by the player.
     while player_decision != "1":
         if player_decision == "0":
             player.append(deck[current_card])
-            player_total = getHandValue(player)
+            player_total = get_hand_value(player)
             current_card += 1
         elif player_decision == "2":
             #Double the player's bet.
 
             #Take one hit then stand.
             player.append(deck[current_card])
-            player_total = getHandValue(player)
+            player_total = get_hand_value(player)
             current_card += 1
             break
         #Check if the player busted before continuing.
@@ -97,7 +117,7 @@ def playHand(player, dealer, deck, current_card, results):
             print("Hand busted")
             break
         #Temporarily using manual player until AI logic is created.
-        printHands(player, dealer)
+        print_hands(player, dealer)
         print("Input player action: 0: Hit, 1: Stand, 2: Double Down, 3: Split")
         player_decision = input()
         print("\n\n")
@@ -105,22 +125,9 @@ def playHand(player, dealer, deck, current_card, results):
     return
 
 
-def buildDeck(deck):
-    #Create the deck of cards using card objects.
-    for i in range(4):
-        for j in range(1, 14):
-            new_card = Card()
-            if j > 10:
-                new_card.number = 10
-            elif j == 1:
-                new_card.number = 11
-            else:
-                new_card.number = j
-            deck.append(new_card)
-
-    #Shuffle the deck.
+def build_deck():
+    deck = [Card(s, r) for r in range(13) for s in range(4)]
     shuffle(deck)
-
     return deck
 
 def main():
@@ -130,7 +137,7 @@ def main():
     #Run the simulation
     for run_number in range(number_of_runs):
         #Build the deck.
-        deck = buildDeck([])
+        deck = build_deck()
 
         #These represent the hands of the player and dealer, respectively.
         player = []
@@ -155,7 +162,7 @@ def main():
         current_card += 1
 
         #Player can choose to make an insurance bet.
-        printHands(player, dealer)
+        print_hands(player, dealer)
         print("Make an insurance bet? (y/n)")
         x = input()
         print("\n\n")
@@ -167,62 +174,62 @@ def main():
         #Check for Blackjack
         player_blackjack = 0
         dealer_blackjack = 0
-        if player[0].getValue() == 11 and player[1].getValue() == 10:
+        if player[0].value == 11 and player[1].value == 10:
             player_blackjack = 1
-        elif player[0].getValue() == 10 and player[1].getValue() == 11:
+        elif player[0].value == 10 and player[1].value == 11:
             player_blackjack = 1
-        if dealer[0].getValue() == 11 and dealer[1].getValue() == 10:
+        if dealer[0].value == 11 and dealer[1].value == 10:
             dealer_blackjack = 1
-        elif dealer[0].getValue() == 10 and dealer[1].getValue() == 11:
+        elif dealer[0].value == 10 and dealer[1].value == 11:
             dealer_blackjack = 1
 
 
         if player_blackjack == 1 and dealer_blackjack == 1:
             print("Player and Dealer Blackjack, Round Draw")
-            printHands(player, dealer)
+            print_hands(player, dealer)
             funds += (2.0 * insurance)
             print("Ending Funds: " + str(funds))
             continue
         elif player_blackjack == 1:
             print("Player Blackjack, Player Wins")
-            printHands(player, dealer)
+            print_hands(player, dealer)
             funds -= insurance
             funds += (bet * 1.5)
             print("Ending Funds: " + str(funds))
             continue
         elif dealer_blackjack == 1:
             print("Dealer Blackjack, Dealer Wins")
-            printHands(player, dealer)
+            print_hands(player, dealer)
             funds -= bet
             funds += (2.0 * insurance)
             print("Ending Funds: " + str(funds))
             continue
         elif insurance != 0:
             print("Dealer does not have Blackjack, Insurance forfeited")
-            printHands(player, dealer)
+            print_hands(player, dealer)
             funds -= insurance
 
         #Player plays out their hand.
-        printHands(player, dealer)
+        print_hands(player, dealer)
         print("Surrender? (y/n)")
         surrender = input()
         if surrender == "y":
             print("Player surrender, Dealer Wins")
-            printHands(player, dealer)
+            print_hands(player, dealer)
             funds -= (0.5 * bet)
             print("Ending Funds: " + str(funds))
             continue
         print("\n\n")
         results = []
         results_hands = []
-        playHand(player, dealer, deck, current_card, results)
+        play_hand(player, dealer, deck, current_card, results)
 
         #Check what the outcome was.
         non_busted_hands = []
         for i in range(0, len(results)):
-            if getHandValue(results[i]) > 21:
+            if get_hand_value(results[i]) > 21:
                 print("Hand " + str(i) + ": Player busts, Dealer Wins")
-                printHands(results[i], dealer)
+                print_hands(results[i], dealer)
                 funds -= bet
             else:
                 non_busted_hands.append(results[i])
@@ -233,39 +240,39 @@ def main():
             continue
 
         #Dealer makes decision: hit when below 17 and stand when above 16.
-        dealer_total = getHandValue(dealer)
+        dealer_total = get_hand_value(dealer)
         while dealer_total < 17:
             dealer.append(deck[current_card])
-            dealer_total = getHandValue(dealer)
+            dealer_total = get_hand_value(dealer)
             current_card += 1
 
         #Check if the dealer busted.
         if dealer_total > 21:
             print("Dealer Busts, Player Wins")
             for i in non_busted_hands:
-                printHands(i, dealer)
+                print_hands(i, dealer)
             funds += (bet * len(non_busted_hands))
             print("Ending Funds: " + str(funds))
             continue
 
         #Compare the player's and dealer's hand.
         for i in non_busted_hands:
-            hand_total = getHandValue(i)
+            hand_total = get_hand_value(i)
             if hand_total > dealer_total:
                 print("Player Total Higher, Player Wins")
-                printHands(i, dealer)
+                print_hands(i, dealer)
                 funds += bet
             elif hand_total < dealer_total:
                 print("Dealer Total Higher, Dealer Wins")
-                printHands(i, dealer)
+                print_hands(i, dealer)
                 funds -= bet
             else:
                 print("Player and Dealer Totals Equal, Draw")
-                printHands(i, dealer)
+                print_hands(i, dealer)
         print("Ending Funds: " + str(funds))
 
-#Beginning of execution.
-main()
+if __name__ == '__main__':
+    main()
 
 
 
