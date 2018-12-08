@@ -141,10 +141,8 @@ def play_hand(player, dealer, deck):
     #Player splits their hand.
     if player_decision == "3":
         hand1, hand2 = player.split()
-        hand1.add_card(deck[0])
-        deck.pop(0)
-        hand2.add_card(deck[0])
-        deck.pop(0)
+        hand1.add_card(deck.pop(0))
+        hand2.add_card(deck.pop(0))
         return [
             *play_hand(hand1, dealer, deck),
             *play_hand(hand2, dealer, deck)]
@@ -152,14 +150,12 @@ def play_hand(player, dealer, deck):
     #Any other action is taken by the player.
     while player_decision != "1":
         if player_decision == "0":
-            player.add_card(deck[0])
-            deck.pop(0)
+            player.add_card(deck.pop(0))
         elif player_decision == "2":
             #Double the player's bet.
 
             #Take one hit then stand.
-            player.add_card(deck[0])
-            deck.pop(0)
+            player.add_card(deck.pop(0))
             break
         #Check if the player busted before continuing.
         if player.total > 21:
@@ -206,14 +202,10 @@ def main():
         #Deal 2 cards to the player and dealer, alternating
         if len(deck) <= shuffle_deck_at:
             deck = build_deck()
-        player.add_card(deck[0])
-        deck.pop(0)
-        dealer.add_card(deck[0])
-        deck.pop(0)
-        player.add_card(deck[0])
-        deck.pop(0)
-        dealer.add_card(deck[0])
-        deck.pop(0)
+        player.add_card(deck.pop(0))
+        dealer.add_card(deck.pop(0))
+        player.add_card(deck.pop(0))
+        dealer.add_card(deck.pop(0))
 
         #Player can choose to make an insurance bet.
         print_hands(player, dealer)
@@ -280,8 +272,7 @@ def main():
 
         #Dealer makes decision: hit when below 17 and stand when above 16.
         while dealer.total < 17:
-            dealer.add_card(deck[0])
-            deck.pop(0)
+            dealer.add_card(deck.pop(0))
 
         #Check if the dealer busted.
         if dealer.total > 21:
