@@ -102,6 +102,38 @@ class Hand:
                     continue
             yield card, card.base_value
 
+class PlayerAI:
+    def __init__(self):
+        self.my_hands = ()
+        self.dealer_hand = None
+    
+    def start_hand(self, my_hand, dealer_hand)
+        self.my_hands = {my_hand}
+        self.dealer_hand = dealer_hand
+    
+    CH_HIT = 0
+    CH_STAND = 1
+    CH_DOUBLE_DOWN = 2
+    CH_SPLIT = 3
+    
+    def choice(self, my_hand):
+        return CH_STAND
+
+class PlayerAIManual(PlayerAI):
+    def choice(self, my_hand):
+        print_hands(my_hand, self.dealer_hand)
+        print("Input player action: 0: Hit, 1: Stand, 2: Double Down, 3: Split")
+        while True:
+            player_decision = input()
+            try:
+                player_decision = int(player_decision)
+            except ValueError:
+                pass
+            else:
+                if 0 <= player_decision <= 3:
+                    return player_decision
+            print(f"'{player_decision}' is not a valid choice.")
+
 def print_hands(*hands):
     # Semi-ugly code to print the hands next to each other.
 
