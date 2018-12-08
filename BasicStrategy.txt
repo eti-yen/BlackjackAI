@@ -1,0 +1,20 @@
+Basic Strategy
+
+If your total is 17-21, ALWAYS stand
+
+If your total is 13-16, stand when the dealer has a 2-6, otherwise draw.
+
+If your total is 12, stand when the dealer has 4-6.
+If your total is 12, take one hit when the dealer has 2 or 2.
+If your total is 12, hit until you are 17+ when the dealer has a 7 or higher
+
+If your total is 11, double down unless the dealer has an ace.
+Otherwise, you should hit.
+
+If your total is 10, double down unless the dealer has an ace or a 10.
+Otherwise, you should hit.
+
+If your total is 9, double down unless the dealer has a 2 or 7+.
+Otherwise, you should hit.
+
+If your total is 8 or lower, you should hit.
