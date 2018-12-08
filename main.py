@@ -257,15 +257,13 @@ def input_yes_no(prompt):
     return input().strip().lower() in ("y", "yes")
 
 
-def main():
-    #The number of times the simulation should be run.
-    number_of_runs = 1
-
+def main(number_of_runs, manual=False):
+    
     #Build the deck. Deck will be shuffled at the end of a round where half the deck or more has been used.
     deck = build_deck()
     shuffle_deck_at = 26
     
-    player_ai = PlayerAI()
+    player_ai = PlayerAIManual() if manual else PlayerAI()
 
     #Run the simulation
     for run_number in range(number_of_runs):
@@ -402,7 +400,19 @@ def main():
     print("Player Draws: ", player_ai.draws)
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-m", "--manual",
+        help="replace the AI with manual player input",
+        action="store_true")
+    parser.add_argument("-n", "--num-rounds",
+        dest="num_rounds", metavar="NUM",
+        help="set the number of rounds to play (default 10)",
+        type=int, default=10)
+    args = parser.parse_args()
+    
+    main(args.num_rounds, args.manual)
 
 
 
