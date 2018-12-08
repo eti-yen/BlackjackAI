@@ -21,22 +21,22 @@ from itertools import zip_longest
 
 
 class Card:
-    
+
     suit_symbols = "\u2663\u2666\u2665\u2660"
     rank_symbols = [
         "A", "2", "3", "4", "5",
         "6", "7", "8", "9", "10",
         "J", "Q", "K"]
-    
+
     # suit: 0..3 (clubs, diamonds, hearts, spades)
     # rank: 0..12
     # base_value for Aces is ALWAYS 11. Reduction is done in
     #  the hand.
-    
+
     def __init__(self, suit, rank):
         self.suit = suit
         self.rank = rank
-        
+
         value = rank + 1
         if value > 10:
             self.base_value = 10
@@ -44,7 +44,7 @@ class Card:
             self.base_value = 11
         else:
             self.base_value = value
-    
+
     def __str__(self):
         suit = Card.suit_symbols[self.suit]
         rank = Card.rank_symbols[self.rank]
@@ -57,16 +57,16 @@ class Hand:
         self.total = 0
         self.soft = False
         self.times_split = times_split
-        
+
         for c in cards:
             self.add_card(c)
-    
+
     def can_be_split(self):
         return (
             self.times_split == 0
             and len(self.cards) == 2
             and self.cards[0].rank == self.cards[1].rank)
-    
+
     def split(self):
         splits = self.times_split + 1
         return (
@@ -74,11 +74,11 @@ class Hand:
                 self.cards[0], times_split=splits),
             Hand(self.name + " Right",
                 self.cards[1], times_split=splits))
-    
+
     def add_card(self, card):
         self.cards.append(card)
         self.total += card.base_value
-        
+
         if card.rank == 0:
             if self.soft:
                 # If we already have an ace,
@@ -86,11 +86,11 @@ class Hand:
                 # ever have one non-reduced ace.
                 self.total -= 10
             self.soft = True
-    
+
         if self.total > 21 and self.soft:
             self.total -= 10
             self.soft = False
-    
+
     def card_values(self):
         unreduced_ace = self.soft
         for card in self.cards:
@@ -104,16 +104,16 @@ class Hand:
 
 def print_hands(*hands):
     # Semi-ugly code to print the hands next to each other.
-    
+
     widths = [max(10, len(h.name)) for h in hands]
     sep = "    "
-    
+
     print(end=" ")
     print(sep=sep, *(f"{h.name:{w}}" for w, h in zip(widths, hands)))
-    
+
     print(end=" ")
     print(sep=sep, *("-" * w for w in widths))
-    
+
     card_columns = (h.card_values() for h in hands)
     for card_row in zip_longest(*card_columns):
         print(end=" ")
@@ -121,16 +121,16 @@ def print_hands(*hands):
             f"{str(card_value[0]):>{w - 5}} ({card_value[1]:>2})"
             if card_value else " " * w
             for w, card_value in zip(widths, card_row)))
-    
+
     print(end=" ")
     print(sep=sep, *("-" * w for w in widths))
-    
+
     print(end=" ")
     print(sep=sep, *(f"Total:{hand.total:>{w - 7}} "
         for w, hand in zip(widths, hands)))
 
 
-def play_hand(player, dealer, deck, current_card):
+def play_hand(player, dealer, deck):
     #Player makes decision: 0: Hit, 1: Stand, 2: Double Down, 3: Split
     #Temporarily using manual player until AI logic is created.
     print_hands(player, dealer)
@@ -141,25 +141,25 @@ def play_hand(player, dealer, deck, current_card):
     #Player splits their hand.
     if player_decision == "3":
         hand1, hand2 = player.split()
-        hand1.add_card(deck[current_card])
-        current_card += 1
-        hand2.add_card(deck[current_card])
-        current_card += 1
+        hand1.add_card(deck[0])
+        deck.pop(0)
+        hand2.add_card(deck[0])
+        deck.pop(0)
         return [
-            *play_hand(hand1, dealer, deck, current_card),
-            *play_hand(hand2, dealer, deck, current_card)]
-    
+            *play_hand(hand1, dealer, deck),
+            *play_hand(hand2, dealer, deck)]
+
     #Any other action is taken by the player.
     while player_decision != "1":
         if player_decision == "0":
-            player.add_card(deck[current_card])
-            current_card += 1
+            player.add_card(deck[0])
+            deck.pop(0)
         elif player_decision == "2":
             #Double the player's bet.
 
             #Take one hit then stand.
-            player.add_card(deck[current_card])
-            current_card += 1
+            player.add_card(deck[0])
+            deck.pop(0)
             break
         #Check if the player busted before continuing.
         if player.total > 21:
@@ -188,17 +188,15 @@ def main():
     #The number of times the simulation should be run.
     number_of_runs = 1
 
+    #Build the deck. Deck will be shuffled at the end of a round where half the deck or more has been used.
+    deck = build_deck()
+    shuffle_deck_at = 26
+
     #Run the simulation
     for run_number in range(number_of_runs):
-        #Build the deck.
-        deck = build_deck()
-
         #These represent the hands of the player and dealer, respectively.
         player = Hand("Player")
         dealer = Hand("Dealer")
-
-        #Which card is next in the queue from the deckself.
-        current_card = 0
 
         #Player places their bet.
         funds = 100.0
@@ -206,14 +204,16 @@ def main():
 
         #Deal cards out.
         #Deal 2 cards to the player and dealer, alternating
-        player.add_card(deck[current_card])
-        current_card += 1
-        dealer.add_card(deck[current_card])
-        current_card += 1
-        player.add_card(deck[current_card])
-        current_card += 1
-        dealer.add_card(deck[current_card])
-        current_card += 1
+        if len(deck) <= shuffle_deck_at:
+            deck = build_deck()
+        player.add_card(deck[0])
+        deck.pop(0)
+        dealer.add_card(deck[0])
+        deck.pop(0)
+        player.add_card(deck[0])
+        deck.pop(0)
+        dealer.add_card(deck[0])
+        deck.pop(0)
 
         #Player can choose to make an insurance bet.
         print_hands(player, dealer)
@@ -226,7 +226,7 @@ def main():
         #Check for Blackjack
         player_blackjack = player.total == 21
         dealer_blackjack = dealer.total == 21
-        
+
         if player_blackjack and dealer_blackjack:
             print("Player and Dealer Blackjack, Round Draw")
             print_hands(player, dealer)
@@ -261,8 +261,8 @@ def main():
             print("Ending Funds: " + str(funds))
             continue
         print("\n\n")
-        results = play_hand(player, dealer, deck, current_card)
-        
+        results = play_hand(player, dealer, deck)
+
         #Check what the outcome was.
         non_busted_hands = []
         for i, hand in enumerate(results):
@@ -272,17 +272,17 @@ def main():
                 funds -= bet
             else:
                 non_busted_hands.append(results[i])
-        
+
         #If there are no more live hands, continue
         if len(non_busted_hands) == 0:
             print("Ending Funds:", funds)
             continue
-        
+
         #Dealer makes decision: hit when below 17 and stand when above 16.
         while dealer.total < 17:
-            dealer.add_card(deck[current_card])
-            current_card += 1
-        
+            dealer.add_card(deck[0])
+            deck.pop(0)
+
         #Check if the dealer busted.
         if dealer.total > 21:
             print("Dealer Busts, Player Wins")
@@ -291,7 +291,7 @@ def main():
             funds += (bet * len(non_busted_hands))
             print("Ending Funds:", funds)
             continue
-        
+
         #Compare the player's and dealer's hand.
         for hand in non_busted_hands:
             if hand.total > dealer.total:
