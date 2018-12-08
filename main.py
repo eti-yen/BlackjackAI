@@ -101,27 +101,67 @@ class Hand:
                     yield card, 1
                     continue
             yield card, card.base_value
+    
+    def __repr__(self):
+        return f"Hand('{self.name}', [{','.join(map(str, self.cards))}])"
 
 class PlayerAI:
     def __init__(self):
         self.my_hands = ()
         self.dealer_hand = None
+        self.wins = 0
+        self.losses = 0
+        self.draws = 0
     
-    def start_hand(self, my_hand, dealer_hand)
+    def start_round(self, my_hand, dealer_hand):
+        assert not self.my_hands and not self.dealer_hand
         self.my_hands = {my_hand}
         self.dealer_hand = dealer_hand
+    
+    def split_hand(self, old_hand, new_hand1, new_hand2):
+        self.my_hands.remove(old_hand)
+        self.my_hands.add(new_hand1)
+        self.my_hands.add(new_hand2)
+    
+    def end_hand(self, my_hand):
+        self.my_hands.remove(my_hand)
+    
+    def end_round(self, result):
+        assert not self.my_hands
+        self.dealer_hand = None
+        if result > 0:
+            self.wins += 1
+        elif result < 0:
+            self.losses += 1
+        else:
+            self.draws += 1
     
     CH_HIT = 0
     CH_STAND = 1
     CH_DOUBLE_DOWN = 2
     CH_SPLIT = 3
     
+    choice_names = ["Hit", "Stand", "Double Down", "Split"]
+    
+    def choose_insurance(self):
+        return False
+    
+    def choose_surrender(self):
+        return False
+    
     def choice(self, my_hand):
-        return CH_STAND
+        return PlayerAI.CH_STAND
+
 
 class PlayerAIManual(PlayerAI):
+    
+    def choose_insurance(self):
+        return input_yes_no("Make an insurance bet? (y/n)")
+    
+    def choose_surrender(self):
+        return input_yes_no("Surrender? (y/n)")
+    
     def choice(self, my_hand):
-        print_hands(my_hand, self.dealer_hand)
         print("Input player action: 0: Hit, 1: Stand, 2: Double Down, 3: Split")
         while True:
             player_decision = input()
@@ -133,6 +173,7 @@ class PlayerAIManual(PlayerAI):
                 if 0 <= player_decision <= 3:
                     return player_decision
             print(f"'{player_decision}' is not a valid choice.")
+
 
 def print_hands(*hands):
     # Semi-ugly code to print the hands next to each other.
@@ -162,28 +203,31 @@ def print_hands(*hands):
         for w, hand in zip(widths, hands)))
 
 
-def play_hand(player, dealer, deck):
+def play_hand(player_ai, player, dealer, deck):
     #Player makes decision: 0: Hit, 1: Stand, 2: Double Down, 3: Split
     #Temporarily using manual player until AI logic is created.
+    
     print_hands(player, dealer)
-    print("Input player action: 0: Hit, 1: Stand, 2: Double Down, 3: Split")
-    player_decision = input()
-    print("\n\n")
+    player_decision = player_ai.choice(player)
+    print("Player choice:", PlayerAI.choice_names[player_decision])
 
     #Player splits their hand.
-    if player_decision == "3":
+    if player_decision == PlayerAI.CH_SPLIT:
         hand1, hand2 = player.split()
+        player_ai.split_hand(player, hand1, hand2)
+        
         hand1.add_card(deck.pop(0))
         hand2.add_card(deck.pop(0))
+        
         return [
-            *play_hand(hand1, dealer, deck),
-            *play_hand(hand2, dealer, deck)]
+            *play_hand(player_ai, hand1, dealer, deck),
+            *play_hand(player_ai, hand2, dealer, deck)]
 
     #Any other action is taken by the player.
-    while player_decision != "1":
-        if player_decision == "0":
+    while player_decision != PlayerAI.CH_STAND:
+        if player_decision == PlayerAI.CH_HIT:
             player.add_card(deck.pop(0))
-        elif player_decision == "2":
+        elif player_decision == PlayerAI.CH_DOUBLE_DOWN:
             #Double the player's bet.
 
             #Take one hit then stand.
@@ -193,11 +237,12 @@ def play_hand(player, dealer, deck):
         if player.total > 21:
             print("Hand busted")
             break
-        #Temporarily using manual player until AI logic is created.
+        
         print_hands(player, dealer)
-        print("Input player action: 0: Hit, 1: Stand, 2: Double Down, 3: Split")
-        player_decision = input()
-        print("\n\n")
+        player_decision = player_ai.choice(player)
+        print("Player choice:", PlayerAI.choice_names[player_decision])
+    
+    player_ai.end_hand(player)
     return [player]
 
 
@@ -219,12 +264,16 @@ def main():
     #Build the deck. Deck will be shuffled at the end of a round where half the deck or more has been used.
     deck = build_deck()
     shuffle_deck_at = 26
+    
+    player_ai = PlayerAI()
 
     #Run the simulation
     for run_number in range(number_of_runs):
         #These represent the hands of the player and dealer, respectively.
         player = Hand("Player")
         dealer = Hand("Dealer")
+        
+        player_ai.start_round(player, dealer)
 
         #Player places their bet.
         funds = 100.0
@@ -241,9 +290,11 @@ def main():
 
         #Player can choose to make an insurance bet.
         print_hands(player, dealer)
-        if input_yes_no("Make an insurance bet? (y/n)"):
+        if player_ai.choose_insurance():
+            print("Player chooses to make an insurance bet.")
             insurance = 5.0
         else:
+            print("Player does not choose to make an insurance bet.")
             insurance = 0.0
         print("\n\n")
 
@@ -256,6 +307,8 @@ def main():
             print_hands(player, dealer)
             funds += (2.0 * insurance)
             print("Ending Funds: " + str(funds))
+            player_ai.end_hand(player)
+            player_ai.end_round(0)
             continue
         elif player_blackjack:
             print("Player Blackjack, Player Wins")
@@ -263,6 +316,8 @@ def main():
             funds -= insurance
             funds += (bet * 1.5)
             print("Ending Funds: " + str(funds))
+            player_ai.end_hand(player)
+            player_ai.end_round(+1)
             continue
         elif dealer_blackjack:
             print("Dealer Blackjack, Dealer Wins")
@@ -270,6 +325,8 @@ def main():
             funds -= bet
             funds += (2.0 * insurance)
             print("Ending Funds: " + str(funds))
+            player_ai.end_hand(player)
+            player_ai.end_round(-1)
             continue
         elif insurance != 0:
             print("Dealer does not have Blackjack, Insurance forfeited")
@@ -278,14 +335,19 @@ def main():
 
         #Player plays out their hand.
         print_hands(player, dealer)
-        if input_yes_no("Surrender? (y/n)"):
+        if player_ai.choose_surrender():
             print("Player surrender, Dealer Wins")
             print_hands(player, dealer)
             funds -= (0.5 * bet)
             print("Ending Funds: " + str(funds))
+            player_ai.end_hand(player)
+            player_ai.end_round(-1)
             continue
+        else:
+            print("Player does not surrender.")
         print("\n\n")
-        results = play_hand(player, dealer, deck)
+        
+        results = play_hand(player_ai, player, dealer, deck)
 
         #Check what the outcome was.
         non_busted_hands = []
@@ -300,6 +362,7 @@ def main():
         #If there are no more live hands, continue
         if len(non_busted_hands) == 0:
             print("Ending Funds:", funds)
+            player_ai.end_round(-1)
             continue
 
         #Dealer makes decision: hit when below 17 and stand when above 16.
@@ -313,6 +376,7 @@ def main():
                 print_hands(hand, dealer)
             funds += (bet * len(non_busted_hands))
             print("Ending Funds:", funds)
+            player_ai.end_round(+1)
             continue
 
         #Compare the player's and dealer's hand.
@@ -321,14 +385,21 @@ def main():
                 print("Player Total Higher, Player Wins")
                 print_hands(hand, dealer)
                 funds += bet
+                player_ai.end_round(+1)
             elif hand.total < dealer.total:
                 print("Dealer Total Higher, Dealer Wins")
                 print_hands(hand, dealer)
                 funds -= bet
+                player_ai.end_round(-1)
             else:
                 print("Player and Dealer Totals Equal, Draw")
                 print_hands(hand, dealer)
+                player_ai.end_round(0)
         print("Ending Funds:", funds)
+    
+    print("Player Wins:  ", player_ai.wins)
+    print("Player Losses:", player_ai.losses)
+    print("Player Draws: ", player_ai.draws)
 
 if __name__ == '__main__':
     main()
