@@ -57,16 +57,16 @@ class Hand:
         self.total = 0
         self.soft = False
         self.times_split = times_split
-
+        
         for c in cards:
             self.add_card(c)
-
+    
     def can_be_split(self):
         return (
             self.times_split == 0
             and len(self.cards) == 2
             and self.cards[0].rank == self.cards[1].rank)
-
+    
     def split(self):
         splits = self.times_split + 1
         return (
@@ -74,11 +74,11 @@ class Hand:
                 self.cards[0], times_split=splits),
             Hand(self.name + " Right",
                 self.cards[1], times_split=splits))
-
+    
     def add_card(self, card):
         self.cards.append(card)
         self.total += card.base_value
-
+        
         if card.rank == 0:
             if self.soft:
                 # If we already have an ace,
@@ -86,11 +86,11 @@ class Hand:
                 # ever have one non-reduced ace.
                 self.total -= 10
             self.soft = True
-
+        
         if self.total > 21 and self.soft:
             self.total -= 10
             self.soft = False
-
+    
     def card_values(self):
         unreduced_ace = self.soft
         for card in self.cards:
@@ -101,6 +101,9 @@ class Hand:
                     yield card, 1
                     continue
             yield card, card.base_value
+    
+    def __getitem__(self, key):
+        return self.cards[key]
     
     def __repr__(self):
         return f"Hand('{self.name}', [{','.join(map(str, self.cards))}])"
@@ -150,8 +153,44 @@ class PlayerAI:
         return False
     
     def choice(self, my_hand):
+        raise NotImplementedError()
+
+class PlayerAIStand(PlayerAI):
+    def choice(self, my_hand):
         return PlayerAI.CH_STAND
 
+class PlayerAIRules(PlayerAI):
+    def choice(self, my_hand):
+        dealer_card = self.dealer_hand[0].base_value
+        
+        if my_hand.total >= 17:
+            return PlayerAI.CH_STAND
+        if my_hand.total >= 13:
+            if 2 <= dealer_card <= 6:
+                return PlayerAI.CH_STAND
+            else:
+                return PlayerAI.CH_HIT
+        if my_hand.total == 12:
+            if 4 <= dealer_card <= 6:
+                return PlayerAI.CH_STAND
+            else:
+                return PlayerAI.CH_HIT
+        if my_hand.total == 11:
+            if dealer_card == 11:
+                return PlayerAI.CH_HIT
+            else:
+                return PlayerAI.CH_DOUBLE_DOWN
+        if my_hand.total == 10:
+            if 10 <= dealer_card <= 11:
+                return PlayerAI.CH_HIT
+            else:
+                return PlayerAI.CH_DOUBLE_DOWN
+        if my_hand.total == 9:
+            if dealer_card == 2 or dealer_card >= 7:
+                return PlayerAI.CH_HIT
+            else:
+                return PlayerAI.CH_DOUBLE_DOWN
+        return PlayerAI.CH_HIT
 
 class PlayerAIManual(PlayerAI):
     
@@ -177,7 +216,9 @@ class PlayerAIManual(PlayerAI):
 
 def print_hands(*hands):
     # Semi-ugly code to print the hands next to each other.
-
+    
+    print()
+    
     widths = [max(10, len(h.name)) for h in hands]
     sep = "    "
 
@@ -201,6 +242,8 @@ def print_hands(*hands):
     print(end=" ")
     print(sep=sep, *(f"Total:{hand.total:>{w - 7}} "
         for w, hand in zip(widths, hands)))
+    
+    print()
 
 
 def play_hand(player_ai, player, dealer, deck):
@@ -257,16 +300,19 @@ def input_yes_no(prompt):
     return input().strip().lower() in ("y", "yes")
 
 
-def main(number_of_runs, manual=False):
+def main(number_of_runs, ai_type):
     
     #Build the deck. Deck will be shuffled at the end of a round where half the deck or more has been used.
     deck = build_deck()
     shuffle_deck_at = 26
     
-    player_ai = PlayerAIManual() if manual else PlayerAI()
+    player_ai = ai_type()
 
     #Run the simulation
     for run_number in range(number_of_runs):
+        
+        print("----------------------------------")
+        
         #These represent the hands of the player and dealer, respectively.
         player = Hand("Player")
         dealer = Hand("Dealer")
@@ -294,7 +340,6 @@ def main(number_of_runs, manual=False):
         else:
             print("Player does not choose to make an insurance bet.")
             insurance = 0.0
-        print("\n\n")
 
         #Check for Blackjack
         player_blackjack = player.total == 21
@@ -343,7 +388,6 @@ def main(number_of_runs, manual=False):
             continue
         else:
             print("Player does not surrender.")
-        print("\n\n")
         
         results = play_hand(player_ai, player, dealer, deck)
 
@@ -403,16 +447,26 @@ if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--manual",
+    
+    ai_type_group = parser.add_mutually_exclusive_group()
+    ai_type_group.add_argument("-m", "--manual",
         help="replace the AI with manual player input",
-        action="store_true")
+        dest="ai_type", action="store_const", const=PlayerAIManual)
+    ai_type_group.add_argument("-s", "--stand",
+        help="use an AI that always stands",
+        dest="ai_type", action="store_const", const=PlayerAIStand)
+    ai_type_group.add_argument("-r", "--rules",
+        help="use an AI that follows a set of rules",
+        dest="ai_type", action="store_const", const=PlayerAIRules)
+    parser.set_defaults(ai_type=PlayerAIRules)
+    
     parser.add_argument("-n", "--num-rounds",
         dest="num_rounds", metavar="NUM",
         help="set the number of rounds to play (default 10)",
         type=int, default=10)
     args = parser.parse_args()
     
-    main(args.num_rounds, args.manual)
+    main(args.num_rounds, args.ai_type)
 
 
 
