@@ -244,7 +244,7 @@ class PlayerAICardCounting(PlayerAI):
     def make_bet(self):
         return map_value(self.true_count,
             0, 10,
-            10, 1000)
+            10, 10000)
     
     def choose_surrender(self):
         assert len(self.my_hands) == 1
@@ -677,7 +677,7 @@ if __name__ == '__main__':
     player_ai.deck_shuffled(args.num_decks)
     shuffle_deck_at = 52 / 2 * args.num_decks
     
-    if args.quiet and args.num_rounds > 50000:
+    if args.quiet and args.num_rounds >= 100000:
         thousands_of_rounds = str(args.num_rounds // 1000)
         occ_update = f"Run {{:{len(thousands_of_rounds)}}}k/{thousands_of_rounds}k"
     else:
