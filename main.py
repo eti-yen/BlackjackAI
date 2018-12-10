@@ -78,15 +78,18 @@ class Hand:
         return (
             self.times_split == 0
             and len(self.cards) == 2
-            and self.cards[0].rank == self.cards[1].rank)
+            and self.cards[0].base_value == self.cards[1].base_value)
     
     def split(self):
         splits = self.times_split + 1
-        return (
-            Hand(self.name + " Left",
-                self.cards[0], times_split=splits, bet=self.bet),
-            Hand(self.name + " Right",
-                self.cards[1], times_split=splits, bet=self.bet))
+        
+        left = Hand(self.name + " Left",
+            self.cards[0], times_split=splits)
+        right = Hand(self.name + " Right",
+            self.cards[1], times_split=splits)
+        left.bet = right.bet = self.bet
+        
+        return left, right
     
     def add_card(self, card):
         self.cards.append(card)
@@ -226,7 +229,7 @@ class PlayerAIRules(PlayerAI):
     def make_bet(self):
         return 10
 
-class PlayerAICardCounting(PlayerAIRules):
+class PlayerAICardCounting(PlayerAI):
     def deck_shuffled(self, num_decks):
         self.num_decks = num_decks
         self.running_count = 0
@@ -253,11 +256,96 @@ class PlayerAICardCounting(PlayerAIRules):
             return self.dealer_hand[0].base_value >= 10
         return False
     
-    # def choice(self, my_hand):
-    #     # Splits?
-    #     if my_hand.can_be_split():
+    def choice(self, my_hand):
+        assert my_hand.total != 21
+        
+        dealer_value = self.dealer_hand[0].base_value
+        
+        # Splits?
+        if my_hand.can_be_split():
+            pair_type = my_hand[0].base_value
             
-    #     # Doubles?
+            if pair_type == 11:
+                return PlayerAI.CH_SPLIT
+            elif pair_type == 10:
+                pass # Never split
+            elif pair_type == 9:
+                if dealer_value <= 9 and dealer_value != 7:
+                    return PlayerAI.CH_SPLIT
+                else:
+                    return PlayerAI.CH_STAND
+            elif pair_type == 8:
+                return PlayerAI.CH_SPLIT
+            # For 7, see the else block
+            elif pair_type == 6:
+                if dealer_value <= 6:
+                    return PlayerAI.CH_SPLIT
+                else:
+                    return PlayerAI.CH_HIT
+            elif pair_type == 5:
+                if dealer_value <= 9:
+                    return PlayerAI.CH_DOUBLE_DOWN
+                else:
+                    return PlayerAI.CH_HIT
+            elif pair_type == 4:
+                if 5 <= dealer_value <= 6:
+                    return PlayerAI.CH_SPLIT
+                else:
+                    return PlayerAI.CH_HIT
+            else: # 7, 3, 2
+                if dealer_value <= 7:
+                    return PlayerAI.CH_SPLIT
+                else:
+                    return PlayerAI.CH_HIT
+        
+        if my_hand.soft:
+            if my_hand.total == 20:
+                return PlayerAI.CH_STAND
+            if my_hand.total == 19:
+                if dealer_value == 6:
+                    return PlayerAI.CH_DOUBLE_DOWN
+                else:
+                    return PlayerAI.CH_STAND
+            if my_hand.total == 18:
+                if dealer_value <= 6:
+                    return PlayerAI.CH_DOUBLE_DOWN
+                elif dealer_value >= 9:
+                    return PlayerAI.CH_HIT
+                else:
+                    return PlayerAI.CH_STAND
+            else:
+                low = (24 - my_hand.total) // 2
+                if low <= dealer_value <= 6:
+                    return PlayerAI.CH_DOUBLE_DOWN
+                else:
+                    return PlayerAI.CH_HIT
+        
+        if my_hand.total >= 17:
+            return PlayerAI.CH_STAND
+        elif my_hand.total >= 13:
+            if dealer_value <= 6:
+                return PlayerAI.CH_STAND
+            else:
+                return PlayerAI.CH_HIT
+        elif my_hand.total >= 12:
+            if 4 <= dealer_value <= 6:
+                return PlayerAI.CH_STAND
+            else:
+                return PlayerAI.CH_HIT
+        elif my_hand.total == 11:
+            return PlayerAI.CH_DOUBLE_DOWN
+        elif my_hand.total == 10:
+            if dealer_value <= 9:
+                return PlayerAI.CH_STAND
+            else:
+                return PlayerAI.CH_HIT
+        elif my_hand.total == 9:
+            if 3 <= dealer_value <= 6:
+                return PlayerAI.CH_STAND
+            else:
+                return PlayerAI.CH_HIT
+        else:
+            return PlayerAI.CH_HIT
 
 class PlayerAIManual(PlayerAI):
     
@@ -357,9 +445,14 @@ def deal(deck, hand, ai):
         ai.view_card(card)
 
 def play_hand(player_ai, player, dealer, deck, qprint, qprint_hands):
-    #Player makes decision: 0: Hit, 1: Stand, 2: Double Down, 3: Split
-    #Temporarily using manual player until AI logic is created.
     
+    if player.total >= 21:
+        if player.total > 21:
+            qprint("Hand busted")
+        player_ai.end_hand(player)
+        return [player]
+    
+    #Player makes decision: 0: Hit, 1: Stand, 2: Double Down, 3: Split
     qprint_hands(player, dealer)
     player_decision = player_ai.choice(player)
     qprint("Player choice:", PlayerAI.choice_names[player_decision])
@@ -375,8 +468,10 @@ def play_hand(player_ai, player, dealer, deck, qprint, qprint_hands):
         deal(deck, hand2, player_ai)
         
         return [
-            *play_hand(player_ai, hand1, dealer, deck),
-            *play_hand(player_ai, hand2, dealer, deck)]
+            *play_hand(player_ai, hand1, dealer, deck,
+                qprint, qprint_hands),
+            *play_hand(player_ai, hand2, dealer, deck,
+                qprint, qprint_hands)]
     
     #Any other action is taken by the player.
     while player_decision != PlayerAI.CH_STAND:
@@ -394,6 +489,8 @@ def play_hand(player_ai, player, dealer, deck, qprint, qprint_hands):
         #Check if the player busted before continuing.
         if player.total > 21:
             qprint("Hand busted")
+            break
+        if player.total == 21:
             break
         
         qprint_hands(player, dealer)
