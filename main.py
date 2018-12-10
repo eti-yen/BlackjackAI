@@ -19,6 +19,11 @@ from itertools import zip_longest
 #When splitting, you split your two cards and place an equal second bet on the second hand.
 #You may split up to having 4 hands in play.
 
+def map_value(x, l1, h1, l2, h2, *, clamp=True):
+    i = (x - l1) / (h1 - l1)
+    if clamp:
+        i = max(0, min(1, i))
+    return i * (h2 - l2) + l2
 
 class Card:
 
@@ -44,6 +49,13 @@ class Card:
             self.base_value = 11
         else:
             self.base_value = value
+        
+        if self.base_value <= 6:
+            self.cc_value = +1
+        elif self.base_value >= 10:
+            self.cc_value = -1
+        else:
+            self.cc_value = 0
 
     def __str__(self):
         suit = Card.suit_symbols[self.suit]
@@ -57,6 +69,7 @@ class Hand:
         self.total = 0
         self.soft = False
         self.times_split = times_split
+        self.bet = None
         
         for c in cards:
             self.add_card(c)
@@ -71,9 +84,9 @@ class Hand:
         splits = self.times_split + 1
         return (
             Hand(self.name + " Left",
-                self.cards[0], times_split=splits),
+                self.cards[0], times_split=splits, bet=self.bet),
             Hand(self.name + " Right",
-                self.cards[1], times_split=splits))
+                self.cards[1], times_split=splits, bet=self.bet))
     
     def add_card(self, card):
         self.cards.append(card)
@@ -105,16 +118,28 @@ class Hand:
     def __getitem__(self, key):
         return self.cards[key]
     
+    def __len__(self):
+        return len(self.cards)
+    
     def __repr__(self):
         return f"Hand('{self.name}', [{','.join(map(str, self.cards))}])"
 
 class PlayerAI:
-    def __init__(self):
+    def __init__(self, funds=0):
         self.my_hands = ()
         self.dealer_hand = None
+        
         self.wins = 0
         self.losses = 0
         self.draws = 0
+        
+        self.funds = funds
+    
+    def deck_shuffled(self, num_decks):
+        pass
+    
+    def view_card(self, card):
+        pass
     
     def start_round(self, my_hand, dealer_hand):
         assert not self.my_hands and not self.dealer_hand
@@ -146,6 +171,9 @@ class PlayerAI:
     
     choice_names = ["Hit", "Stand", "Double Down", "Split"]
     
+    def make_bet(self):
+        raise NotImplementedError()
+    
     def choose_insurance(self):
         return False
     
@@ -158,6 +186,9 @@ class PlayerAI:
 class PlayerAIStand(PlayerAI):
     def choice(self, my_hand):
         return PlayerAI.CH_STAND
+    
+    def make_bet(self):
+        return 10
 
 class PlayerAIRules(PlayerAI):
     def choice(self, my_hand):
@@ -191,6 +222,42 @@ class PlayerAIRules(PlayerAI):
             else:
                 return PlayerAI.CH_DOUBLE_DOWN
         return PlayerAI.CH_HIT
+    
+    def make_bet(self):
+        return 10
+
+class PlayerAICardCounting(PlayerAIRules):
+    def deck_shuffled(self, num_decks):
+        self.num_decks = num_decks
+        self.running_count = 0
+    
+    def view_card(self, card):
+        self.running_count += card.cc_value
+    
+    @property
+    def true_count(self):
+        return self.running_count // self.num_decks
+    
+    def make_bet(self):
+        return map_value(self.true_count,
+            0, 10,
+            10, 1000)
+    
+    def choose_surrender(self):
+        assert len(self.my_hands) == 1
+        hand = next(iter(self.my_hands))
+        
+        if hand.total == 16:
+            return self.dealer_hand[0].base_value >= 9
+        if hand.total == 15:
+            return self.dealer_hand[0].base_value >= 10
+        return False
+    
+    # def choice(self, my_hand):
+    #     # Splits?
+    #     if my_hand.can_be_split():
+            
+    #     # Doubles?
 
 class PlayerAIManual(PlayerAI):
     
@@ -200,8 +267,19 @@ class PlayerAIManual(PlayerAI):
     def choose_surrender(self):
         return input_yes_no("Surrender? (y/n)")
     
+    def make_bet(self):
+        while True:
+            bet = input("Enter your bet amount: ")
+            try:
+                bet = int(bet)
+            except ValueError:
+                print(f"'{bet}' is not a valid amount.")
+            else:
+                return bet
+    
     def choice(self, my_hand):
-        print("Input player action: 0: Hit, 1: Stand, 2: Double Down, 3: Split")
+        print("Input player action: 0: Hit, 1: Stand, 2: Double Down",
+            ", 3: Split" if my_hand.can_be_split() else "", sep="")
         while True:
             player_decision = input()
             try:
@@ -209,7 +287,9 @@ class PlayerAIManual(PlayerAI):
             except ValueError:
                 pass
             else:
-                if 0 <= player_decision <= 3:
+                if my_hand.can_be_split() and player_decision == 3:
+                    return player_decision
+                if 0 <= player_decision <= 2:
                     return player_decision
             print(f"'{player_decision}' is not a valid choice.")
 
@@ -245,52 +325,11 @@ def print_hands(*hands):
     
     print()
 
-
-def play_hand(player_ai, player, dealer, deck):
-    #Player makes decision: 0: Hit, 1: Stand, 2: Double Down, 3: Split
-    #Temporarily using manual player until AI logic is created.
-    
-    print_hands(player, dealer)
-    player_decision = player_ai.choice(player)
-    print("Player choice:", PlayerAI.choice_names[player_decision])
-
-    #Player splits their hand.
-    if player_decision == PlayerAI.CH_SPLIT:
-        hand1, hand2 = player.split()
-        player_ai.split_hand(player, hand1, hand2)
-        
-        hand1.add_card(deck.pop(0))
-        hand2.add_card(deck.pop(0))
-        
-        return [
-            *play_hand(player_ai, hand1, dealer, deck),
-            *play_hand(player_ai, hand2, dealer, deck)]
-
-    #Any other action is taken by the player.
-    while player_decision != PlayerAI.CH_STAND:
-        if player_decision == PlayerAI.CH_HIT:
-            player.add_card(deck.pop(0))
-        elif player_decision == PlayerAI.CH_DOUBLE_DOWN:
-            #Double the player's bet.
-
-            #Take one hit then stand.
-            player.add_card(deck.pop(0))
-            break
-        #Check if the player busted before continuing.
-        if player.total > 21:
-            print("Hand busted")
-            break
-        
-        print_hands(player, dealer)
-        player_decision = player_ai.choice(player)
-        print("Player choice:", PlayerAI.choice_names[player_decision])
-    
-    player_ai.end_hand(player)
-    return [player]
-
-
-def build_deck():
-    deck = [Card(s, r) for r in range(13) for s in range(4)]
+def build_deck(num_decks=1):
+    deck = [Card(s, r)
+        for r in range(13)
+        for s in range(4)
+        for _ in range(num_decks)]
     shuffle(deck)
     return deck
 
@@ -299,149 +338,179 @@ def input_yes_no(prompt):
         print(prompt)
     return input().strip().lower() in ("y", "yes")
 
+def deal(deck, hand, ai):
+    card = deck.pop(0)
+    hand.add_card(card)
+    if ai:
+        ai.view_card(card)
 
-def main(number_of_runs, ai_type):
+def play_hand(player_ai, player, dealer, deck, qprint, qprint_hands):
+    #Player makes decision: 0: Hit, 1: Stand, 2: Double Down, 3: Split
+    #Temporarily using manual player until AI logic is created.
     
-    #Build the deck. Deck will be shuffled at the end of a round where half the deck or more has been used.
-    deck = build_deck()
-    shuffle_deck_at = 26
+    qprint_hands(player, dealer)
+    player_decision = player_ai.choice(player)
+    qprint("Player choice:", PlayerAI.choice_names[player_decision])
+
+    #Player splits their hand.
+    if player_decision == PlayerAI.CH_SPLIT:
+        assert player.can_be_split()
+        
+        hand1, hand2 = player.split()
+        player_ai.split_hand(player, hand1, hand2)
+        
+        deal(deck, hand1, player_ai)
+        deal(deck, hand2, player_ai)
+        
+        return [
+            *play_hand(player_ai, hand1, dealer, deck),
+            *play_hand(player_ai, hand2, dealer, deck)]
     
-    player_ai = ai_type()
-
-    #Run the simulation
-    for run_number in range(number_of_runs):
+    #Any other action is taken by the player.
+    while player_decision != PlayerAI.CH_STAND:
         
-        print("----------------------------------")
+        if player_decision == PlayerAI.CH_HIT:
+            deal(deck, player, player_ai)
+            
+        elif player_decision == PlayerAI.CH_DOUBLE_DOWN:
+            #Double the player's bet.
+            player.bet *= 2
+            
+            #Take one hit then stand.
+            deal(deck, player, player_ai)
+            break
+        #Check if the player busted before continuing.
+        if player.total > 21:
+            qprint("Hand busted")
+            break
         
-        #These represent the hands of the player and dealer, respectively.
-        player = Hand("Player")
-        dealer = Hand("Dealer")
-        
-        player_ai.start_round(player, dealer)
+        qprint_hands(player, dealer)
+        player_decision = player_ai.choice(player)
+        qprint("Player choice:", PlayerAI.choice_names[player_decision])
+    
+    player_ai.end_hand(player)
+    return [player]
 
-        #Player places their bet.
-        funds = 100.0
-        bet = 10.0
+def play_run(player_ai, deck, qprint, qprint_hands):
+    #These represent the hands of the player and dealer, respectively.
+    player = Hand("Player")
+    dealer = Hand("Dealer")
+    
+    player_ai.start_round(player, dealer)
 
-        #Deal cards out.
-        #Deal 2 cards to the player and dealer, alternating
-        if len(deck) <= shuffle_deck_at:
-            deck = build_deck()
-        player.add_card(deck.pop(0))
-        dealer.add_card(deck.pop(0))
-        player.add_card(deck.pop(0))
-        dealer.add_card(deck.pop(0))
+    #Player places their bet.
+    player.bet = player_ai.make_bet()
 
+    #Deal cards out.
+    #Deal 2 cards to the player and dealer, alternating
+    deal(deck, player, player_ai)
+    deal(deck, dealer, player_ai)
+    deal(deck, player, player_ai)
+    deal(deck, dealer, None)
+    
+    if dealer[0].base_value == 11:
         #Player can choose to make an insurance bet.
-        print_hands(player, dealer)
+        qprint_hands(player, dealer)
         if player_ai.choose_insurance():
-            print("Player chooses to make an insurance bet.")
-            insurance = 5.0
+            qprint("Player chooses to make an insurance bet.")
+            insurance = 5
         else:
-            print("Player does not choose to make an insurance bet.")
-            insurance = 0.0
-
-        #Check for Blackjack
-        player_blackjack = player.total == 21
-        dealer_blackjack = dealer.total == 21
-
-        if player_blackjack and dealer_blackjack:
-            print("Player and Dealer Blackjack, Round Draw")
-            print_hands(player, dealer)
-            funds += (2.0 * insurance)
-            print("Ending Funds: " + str(funds))
-            player_ai.end_hand(player)
-            player_ai.end_round(0)
-            continue
-        elif player_blackjack:
-            print("Player Blackjack, Player Wins")
-            print_hands(player, dealer)
-            funds -= insurance
-            funds += (bet * 1.5)
-            print("Ending Funds: " + str(funds))
-            player_ai.end_hand(player)
-            player_ai.end_round(+1)
-            continue
-        elif dealer_blackjack:
-            print("Dealer Blackjack, Dealer Wins")
-            print_hands(player, dealer)
-            funds -= bet
-            funds += (2.0 * insurance)
-            print("Ending Funds: " + str(funds))
-            player_ai.end_hand(player)
-            player_ai.end_round(-1)
-            continue
-        elif insurance != 0:
-            print("Dealer does not have Blackjack, Insurance forfeited")
-            print_hands(player, dealer)
-            funds -= insurance
-
-        #Player plays out their hand.
-        print_hands(player, dealer)
-        if player_ai.choose_surrender():
-            print("Player surrender, Dealer Wins")
-            print_hands(player, dealer)
-            funds -= (0.5 * bet)
-            print("Ending Funds: " + str(funds))
-            player_ai.end_hand(player)
-            player_ai.end_round(-1)
-            continue
-        else:
-            print("Player does not surrender.")
-        
-        results = play_hand(player_ai, player, dealer, deck)
-
-        #Check what the outcome was.
-        non_busted_hands = []
-        for i, hand in enumerate(results):
-            if hand.total > 21:
-                print(f"Hand {i}: Player busts, Dealer Wins")
-                print_hands(hand, dealer)
-                funds -= bet
-            else:
-                non_busted_hands.append(results[i])
-
-        #If there are no more live hands, continue
-        if len(non_busted_hands) == 0:
-            print("Ending Funds:", funds)
-            player_ai.end_round(-1)
-            continue
-
-        #Dealer makes decision: hit when below 17 and stand when above 16.
-        while dealer.total < 17:
-            dealer.add_card(deck.pop(0))
-
-        #Check if the dealer busted.
-        if dealer.total > 21:
-            print("Dealer Busts, Player Wins")
-            for hand in non_busted_hands:
-                print_hands(hand, dealer)
-            funds += (bet * len(non_busted_hands))
-            print("Ending Funds:", funds)
-            player_ai.end_round(+1)
-            continue
-
-        #Compare the player's and dealer's hand.
-        for hand in non_busted_hands:
-            if hand.total > dealer.total:
-                print("Player Total Higher, Player Wins")
-                print_hands(hand, dealer)
-                funds += bet
-                player_ai.end_round(+1)
-            elif hand.total < dealer.total:
-                print("Dealer Total Higher, Dealer Wins")
-                print_hands(hand, dealer)
-                funds -= bet
-                player_ai.end_round(-1)
-            else:
-                print("Player and Dealer Totals Equal, Draw")
-                print_hands(hand, dealer)
-                player_ai.end_round(0)
-        print("Ending Funds:", funds)
+            qprint("Player does not choose to make an insurance bet.")
+            insurance = 0
+    else:
+        insurance = 0
     
-    print("Player Wins:  ", player_ai.wins)
-    print("Player Losses:", player_ai.losses)
-    print("Player Draws: ", player_ai.draws)
+    #Check for Blackjack
+    player_blackjack = player.total == 21
+    dealer_blackjack = dealer.total == 21
+    
+    if player_blackjack and dealer_blackjack:
+        qprint("Player and Dealer Blackjack, Round Draw")
+        qprint_hands(player, dealer)
+        player_ai.funds += (2 * insurance)
+        player_ai.end_hand(player)
+        player_ai.end_round(0)
+        return
+    elif player_blackjack:
+        qprint("Player Blackjack, Player Wins")
+        qprint_hands(player, dealer)
+        player_ai.funds += (player.bet * 3 // 2) - insurance
+        player_ai.end_hand(player)
+        player_ai.end_round(+1)
+        return
+    elif dealer_blackjack:
+        qprint("Dealer Blackjack, Dealer Wins")
+        qprint_hands(player, dealer)
+        player_ai.funds += (2 * insurance) - player.bet
+        player_ai.end_hand(player)
+        player_ai.end_round(-1)
+        return
+    elif insurance != 0:
+        qprint("Dealer does not have Blackjack, Insurance forfeited")
+        qprint_hands(player, dealer)
+        player_ai.funds -= insurance
+
+    #Player plays out their hand.
+    qprint_hands(player, dealer)
+    if player_ai.choose_surrender():
+        qprint("Player surrender, Dealer Wins")
+        qprint_hands(player, dealer)
+        player_ai.funds -= (player.bet // 2)
+        player_ai.end_hand(player)
+        player_ai.end_round(-1)
+        return
+    else:
+        qprint("Player does not surrender.")
+    
+    results = play_hand(player_ai, player, dealer, deck,
+        qprint, qprint_hands)
+
+    #Check what the outcome was.
+    non_busted_hands = []
+    for i, hand in enumerate(results):
+        if hand.total > 21:
+            qprint(f"Hand {i}: Player busts, Dealer Wins")
+            qprint_hands(hand, dealer)
+            player_ai.funds -= player.bet
+        else:
+            non_busted_hands.append(results[i])
+
+    #If there are no more live hands, continue
+    if len(non_busted_hands) == 0:
+        player_ai.end_round(-1)
+        return
+
+    #Dealer makes decision: hit when below 17 and stand when above 16.
+    player_ai.view_card(dealer[1])
+    while dealer.total < 17:
+        deal(deck, dealer, player_ai)
+    
+    #Check if the dealer busted.
+    if dealer.total > 21:
+        qprint("Dealer Busts, Player Wins")
+        for hand in non_busted_hands:
+            qprint_hands(hand, dealer)
+            player_ai.funds += hand.bet
+        player_ai.end_round(+1)
+        return
+
+    #Compare the player's and dealer's hand.
+    for hand in non_busted_hands:
+        if hand.total > dealer.total:
+            qprint("Player Total Higher, Player Wins")
+            qprint_hands(hand, dealer)
+            player_ai.funds += hand.bet
+            player_ai.end_round(+1)
+        elif hand.total < dealer.total:
+            qprint("Dealer Total Higher, Dealer Wins")
+            qprint_hands(hand, dealer)
+            player_ai.funds -= hand.bet
+            player_ai.end_round(-1)
+        else:
+            qprint("Player and Dealer Totals Equal, Draw")
+            qprint_hands(hand, dealer)
+            player_ai.end_round(0)
+
 
 if __name__ == '__main__':
     import argparse
@@ -458,15 +527,58 @@ if __name__ == '__main__':
     ai_type_group.add_argument("-r", "--rules",
         help="use an AI that follows a set of rules",
         dest="ai_type", action="store_const", const=PlayerAIRules)
-    parser.set_defaults(ai_type=PlayerAIRules)
+    ai_type_group.add_argument("-c", "--counting",
+        help="use an AI that counts cards",
+        dest="ai_type", action="store_const", const=PlayerAICardCounting)
+    parser.set_defaults(ai_type=PlayerAICardCounting)
     
     parser.add_argument("-n", "--num-rounds",
-        dest="num_rounds", metavar="NUM",
         help="set the number of rounds to play (default 10)",
+        dest="num_rounds", metavar="NUM",
         type=int, default=10)
+    parser.add_argument("-d", "--num-decks",
+        help="set the number of decks to play with (default 1)",
+        dest="num_decks", metavar="NUM",
+        type=int, default=1)
+    parser.add_argument("-q", "--quiet",
+        help="remove most logging",
+        action="store_true")
     args = parser.parse_args()
     
-    main(args.num_rounds, args.ai_type)
+    
+    def ignore(*args, **kwargs):
+        pass
+    
+    if args.quiet:
+        qprint = ignore
+        qprint_hands = ignore
+    else:
+        qprint = print
+        qprint_hands = print_hands
+    
+    player_ai = args.ai_type()
+    
+    # Build deck. Shuffle it before a run if half the cards are left.
+    deck = build_deck(args.num_decks)
+    player_ai.deck_shuffled(args.num_decks)
+    shuffle_deck_at = 52 / 2 * args.num_decks
+    
+    #Run the simulation
+    for run_number in range(args.num_rounds):
+        
+        if len(deck) <= shuffle_deck_at:
+            deck = build_deck(args.num_decks)
+            player_ai.deck_shuffled(args.num_decks)
+        
+        qprint("----------------------------------")
+        play_run(player_ai, deck, qprint, qprint_hands)
+        qprint(f"Total Profit: {player_ai.funds:+}")
+    
+    qprint("----------------------------------")
+    print("Player Wins:  ", player_ai.wins)
+    print("Player Losses:", player_ai.losses)
+    print("Player Draws: ", player_ai.draws)
+    print(f"Profit:        {player_ai.funds:+}")
 
 
 
