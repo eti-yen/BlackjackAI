@@ -677,8 +677,17 @@ if __name__ == '__main__':
     player_ai.deck_shuffled(args.num_decks)
     shuffle_deck_at = 52 / 2 * args.num_decks
     
+    if args.quiet and args.num_rounds > 50000:
+        thousands_of_rounds = str(args.num_rounds // 1000)
+        occ_update = f"Run {{:{len(thousands_of_rounds)}}}k/{thousands_of_rounds}k"
+    else:
+        occ_update = None
+    
     #Run the simulation
     for run_number in range(args.num_rounds):
+        
+        if occ_update and run_number % 50000 == 49999:
+            print(occ_update.format((run_number + 1) // 1000))
         
         if len(deck) <= shuffle_deck_at:
             deck = build_deck(args.num_decks)
