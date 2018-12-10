@@ -1,5 +1,5 @@
 from random import shuffle
-from itertools import zip_longest
+import itertools
 
 #Important notes on the game.
 #Blackjacks are paid out 3 to 2, or 1.5x the bet.
@@ -294,22 +294,31 @@ class PlayerAIManual(PlayerAI):
             print(f"'{player_decision}' is not a valid choice.")
 
 
-def print_hands(*hands):
+def print_hands(*hands, hide={"Dealer"}):
     # Semi-ugly code to print the hands next to each other.
     
     print()
     
     widths = [max(10, len(h.name)) for h in hands]
     sep = "    "
-
+    
     print(end=" ")
     print(sep=sep, *(f"{h.name:{w}}" for w, h in zip(widths, hands)))
 
     print(end=" ")
     print(sep=sep, *("-" * w for w in widths))
 
-    card_columns = (h.card_values() for h in hands)
-    for card_row in zip_longest(*card_columns):
+    card_columns = []
+    for h in hands:
+        if h.name in hide:
+            cards = itertools.chain(
+                ((h[0], h[0].base_value),),
+                itertools.repeat(("--", "--"), len(h) - 1))
+        else:
+            cards = h.card_values()
+        card_columns.append(cards)
+    
+    for card_row in itertools.zip_longest(*card_columns):
         print(end=" ")
         print(sep=sep, *(
             f"{str(card_value[0]):>{w - 5}} ({card_value[1]:>2})"
@@ -320,7 +329,10 @@ def print_hands(*hands):
     print(sep=sep, *("-" * w for w in widths))
 
     print(end=" ")
-    print(sep=sep, *(f"Total:{hand.total:>{w - 7}} "
+    print(sep=sep, *(
+        f"""Total:{
+            "--" if hand.name in hide else hand.total
+            :>{w - 7}} """
         for w, hand in zip(widths, hands)))
     
     print()
@@ -426,21 +438,24 @@ def play_run(player_ai, deck, qprint, qprint_hands):
     
     if player_blackjack and dealer_blackjack:
         qprint("Player and Dealer Blackjack, Round Draw")
-        qprint_hands(player, dealer)
+        player_ai.view_card(dealer[1])
+        qprint_hands(player, dealer, hide=())
         player_ai.funds += (2 * insurance)
         player_ai.end_hand(player)
         player_ai.end_round(0)
         return
     elif player_blackjack:
         qprint("Player Blackjack, Player Wins")
-        qprint_hands(player, dealer)
+        player_ai.view_card(dealer[1])
+        qprint_hands(player, dealer, hide=())
         player_ai.funds += (player.bet * 3 // 2) - insurance
         player_ai.end_hand(player)
         player_ai.end_round(+1)
         return
     elif dealer_blackjack:
         qprint("Dealer Blackjack, Dealer Wins")
-        qprint_hands(player, dealer)
+        player_ai.view_card(dealer[1])
+        qprint_hands(player, dealer, hide=())
         player_ai.funds += (2 * insurance) - player.bet
         player_ai.end_hand(player)
         player_ai.end_round(-1)
@@ -489,26 +504,28 @@ def play_run(player_ai, deck, qprint, qprint_hands):
     if dealer.total > 21:
         qprint("Dealer Busts, Player Wins")
         for hand in non_busted_hands:
-            qprint_hands(hand, dealer)
+            player_ai.view_card(dealer[1])
+            qprint_hands(player, dealer, hide=())
             player_ai.funds += hand.bet
         player_ai.end_round(+1)
         return
 
     #Compare the player's and dealer's hand.
+    player_ai.view_card(dealer[1])
     for hand in non_busted_hands:
         if hand.total > dealer.total:
             qprint("Player Total Higher, Player Wins")
-            qprint_hands(hand, dealer)
+            qprint_hands(player, dealer, hide=())
             player_ai.funds += hand.bet
             player_ai.end_round(+1)
         elif hand.total < dealer.total:
             qprint("Dealer Total Higher, Dealer Wins")
-            qprint_hands(hand, dealer)
+            qprint_hands(player, dealer, hide=())
             player_ai.funds -= hand.bet
             player_ai.end_round(-1)
         else:
             qprint("Player and Dealer Totals Equal, Draw")
-            qprint_hands(hand, dealer)
+            qprint_hands(player, dealer, hide=())
             player_ai.end_round(0)
 
 
