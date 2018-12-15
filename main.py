@@ -350,25 +350,81 @@ class PlayerAICardCounting(PlayerAI):
         else:
             return PlayerAI.CH_HIT
            
-# I am terrible at names           
+# Basic strategy changes from here https://wizardofodds.com/games/blackjack/card-counting/high-low/
 class PlayerAIAdvancedCardCount(PlayerAICardCounting):
     
-    def deck_shuffled(self, num_decks):
-        super().deck_shuffled(num_decks)
-        self.insurance_count = 0
-    
-    def view_card(self, card):
-        super().view_card(card)
-        if card.base_value == 10:
-            self.insurance_count += -2
-        else:
-            self.insurance_count += 1
-        
     def choose_insurance(self):
-        if self.insurance_count >= 4 * self.num_decks + 1:
+        if self.true_count >= 3:
             return True
         else:
             return False
+            
+    def choice(self, my_hand):
+        assert my_hand.total != 21
+        
+        dealer_value = self.dealer_hand[0].base_value
+        if my_hand.can_be_split():
+            pair_type = my_hand[0].base_value
+            
+            if pair_type == 10:
+                if dealer_value == 5 and self.true_count >= 5:
+                    return PlayerAI.CH_SPLIT
+                if dealer_value == 6 and self.true_count >= 4:
+                    return PlayerAI.CH_SPLIT
+        
+        elif my_hand.total == 16:
+            if dealer_value == 10 and self.true_count >= 0:
+                return PlayerAI.CH_STAND
+            elif dealer_value == 9 and self.true_count >= 5:
+                return PlayerAI.CH_STAND
+        elif my_hand.total == 15:
+            if dealer_value == 10 and self.true_count >= 4:
+                return PlayerAI.CH_STAND
+        elif my_hand.total == 10:
+            if dealer_value == 10 and self.true_count >= 4:
+                return PlayerAI.CH_DOUBLE_DOWN
+            elif dealer_value == 11 and self.true_count >= 4:
+                return PlayerAI.CH_DOUBLE_DOWN
+        elif my_hand.total == 12:
+            if dealer_value == 3 and self.true_count >= 2:
+                return PlayerAI.CH_STAND
+            elif dealer_value == 2 and self.true_count >= 3:
+                return PlayerAI.CH_STAND
+            elif dealer_value == 4 and self.true_count < 0:
+                return PlayerAI.CH_HIT
+            elif dealer_value == 5 and self.true_count < -2:
+                return PlayerAI.CH_HIT
+            elif dealer_value == 6 and self.true_count < -1:
+                return PlayerAI.CH_HIT
+        elif my_hand.total == 11:
+            if dealer_value == 11 and self.true_count >= 1:
+                return PlayerAI.CH_DOUBLE_DOWN
+        elif my_hand.total == 9:
+            if dealer_value == 2 and self.true_count >= 1:
+                return PlayerAI.CH_DOUBLE_DOWN
+            if dealer_value == 7 and self.true_count >= 3:
+                return PlayerAI.CH_DOUBLE_DOWN
+        elif my_hand.total == 13:
+            if dealer_value == 2 and self.true_count < -1:
+                return PlayerAI.CH_HIT
+            elif dealer_value == 3 and self.true_count < -2:
+                return PlayerAI.CH_HIT
+        return super().choice(my_hand)
+    
+    def choose_surrender(self):
+        assert len(self.my_hands) == 1
+        hand = next(iter(self.my_hands))
+        
+        if hand.total == 14:
+            return self.dealer_hand[0].base_value == 10 and self.true_count >= 3
+        elif hand.total == 15:
+            if self.true_count >= 0:
+                return self.dealer_hand[0].base_value == 10
+            if self.true_count >= 2:
+                return self.dealer_hand[0].base_value == 9
+            if self.true_count >= 1:
+                return self.dealer_hand[0].base_value == 11
+        return super().choose_surrender()
 
 class PlayerAIManual(PlayerAI):
     
