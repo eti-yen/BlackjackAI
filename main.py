@@ -234,11 +234,11 @@ class PlayerAICardCounting(PlayerAI):
     def deck_shuffled(self, num_decks):
         self.num_decks = num_decks
         self.running_count = 0
-		self.cards_played = 0
+        self.cards_played = 0
     
     def view_card(self, card):
         self.running_count += card.cc_value
-		self.cards_played += 1
+        self.cards_played += 1
     
     @property
     def true_count(self):
@@ -675,6 +675,10 @@ if __name__ == '__main__':
         help="set the number of decks to play with (default 1)",
         dest="num_decks", metavar="NUM",
         type=int, default=1)
+    parser.add_argument("-s", "--shuffle-at",
+        help="sets the percentage of the decks that is played before shuffling (default 0.5)",
+        dest="shuffle_at", metavar="DEC",
+        type=float, default=0.5)
     parser.add_argument("-q", "--quiet",
         help="remove most screen logging",
         action="store_true")
@@ -691,7 +695,7 @@ if __name__ == '__main__':
     
     player_ai = args.ai_type()
     sim = BlackjackSimulator(player_ai,
-        num_decks=args.num_decks,
+        num_decks=args.num_decks, shuffle_deck_at=args.shuffle_at,
         quiet=args.quiet, log_file=log_file)
     
     if args.quiet and args.num_rounds >= 100000:
