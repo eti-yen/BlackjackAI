@@ -7,7 +7,7 @@
 
 ## Basic Usage
 
-The project is run on Python 3.7.1. You can run it using
+The project is intended to be run on Python 3.7. You can run it using
 
     python main.py
 
