@@ -682,7 +682,7 @@ if __name__ == "__main__":
     parser.add_argument("-q", "--quiet",
         help="remove most screen logging",
         action="store_true")
-    parser.add_argument("-l", "--log",
+    parser.add_argument("-l", "--log", metavar="FILE",
         help="save logs to a file",
         nargs="?", const="log.txt")
     args = parser.parse_args()
