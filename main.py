@@ -349,6 +349,26 @@ class PlayerAICardCounting(PlayerAI):
                 return PlayerAI.CH_HIT
         else:
             return PlayerAI.CH_HIT
+           
+# I am terrible at names           
+class PlayerAIAdvancedCardCount(PlayerAICardCounting):
+    
+    def deck_shuffled(self, num_decks):
+        super().deck_shuffled(num_decks)
+        self.insurance_count = 0
+    
+    def view_card(self, card):
+        super().view_card(card)
+        if card.base_value == 10:
+            self.insurance_count += -2
+        else:
+            self.insurance_count += 1
+        
+    def choose_insurance(self):
+        if self.insurance_count >= 4 * self.num_decks + 1:
+            return True
+        else:
+            return False
 
 class PlayerAIManual(PlayerAI):
     
@@ -665,6 +685,9 @@ if __name__ == "__main__":
     ai_type_group.add_argument("-c", "--counting",
         help="use an AI that counts cards",
         dest="ai_type", action="store_const", const=PlayerAICardCounting)
+    ai_type_group.add_argument("-ac", "--advanced_counting",
+        help="use a riskier card-counting AI that deviates from basic strategy",
+        dest="ai_type", action="store_const", const=PlayerAIAdvancedCardCount)
     parser.set_defaults(ai_type=PlayerAICardCounting)
     
     parser.add_argument("-n", "--num-rounds",
