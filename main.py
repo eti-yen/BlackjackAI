@@ -234,13 +234,15 @@ class PlayerAICardCounting(PlayerAI):
     def deck_shuffled(self, num_decks):
         self.num_decks = num_decks
         self.running_count = 0
+		self.cards_played = 0
     
     def view_card(self, card):
         self.running_count += card.cc_value
+		self.cards_played += 1
     
     @property
     def true_count(self):
-        return self.running_count // self.num_decks
+        return self.running_count // (self.num_decks - (cards_played // 52))
     
     def make_bet(self):
         return map_value(self.true_count,
