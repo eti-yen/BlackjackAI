@@ -242,7 +242,7 @@ class PlayerAICardCounting(PlayerAI):
     
     @property
     def true_count(self):
-        return self.running_count // (self.num_decks - (cards_played // 52))
+        return self.running_count // (self.num_decks - (self.cards_played // 52))
     
     def make_bet(self):
         return map_value(self.true_count,
