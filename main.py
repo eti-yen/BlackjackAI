@@ -675,7 +675,7 @@ if __name__ == "__main__":
         help="set the number of decks to play with (default 1)",
         dest="num_decks", metavar="NUM",
         type=int, default=1)
-    parser.add_argument("-s", "--shuffle-at",
+    parser.add_argument("-sh", "--shuffle-at",
         help="sets the percentage of the decks that is played before shuffling (default 0.5)",
         dest="shuffle_at", metavar="DEC",
         type=float, default=0.5)
