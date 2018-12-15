@@ -647,7 +647,7 @@ class BlackjackSimulator:
                 self.player_ai.end_round(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser()
@@ -684,14 +684,14 @@ if __name__ == '__main__':
         action="store_true")
     parser.add_argument("-l", "--log",
         help="save logs to a file",
-        nargs="?", default=None)
+        nargs="?", const="log.txt")
     args = parser.parse_args()
     
     
-    if args.log == None:
+    if args.log is None:
         log_file = None
     else:
-        log_file = open(args.log or "log.txt", "w", encoding='utf-8')
+        log_file = open(args.log, "w", encoding="utf-8")
     
     player_ai = args.ai_type()
     sim = BlackjackSimulator(player_ai,
