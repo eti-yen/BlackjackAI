@@ -35,6 +35,10 @@ the hand), and will make bets accordingly. Most play decisions (hit vs. stand, a
 the tables found both in the linked pages and on Wikipedia, detailing the most mathematically advantageous
 moves in all possible situations.
 
+We also have an "Advanced" card counting AI that deviates from Basic Strategy following certain card counts.
+This was mostly based on the so-called "Illustrious 18" and "Fab 4" charts found at https://wizardofodds.com/games/blackjack/card-counting/high-low/
+and https://www.casinonewsdaily.com/blackjack-guide/illustrious-18/. Of note is that this is the only AI that will sometimes take insurance.
+
 ## Notes
 
 - To get a good read on the AI's skill, it is recommended to let it play a large number of hands. Something
@@ -49,5 +53,5 @@ Losses are inevitable, but the AI can minimize their impact by betting correctly
 
 - The current and default AI is the one accessed by `-c/--counting`. The other AI options are provided only for
 historical and trivia purposes, and are not intended for grading. They are shown on the help screen in the
-order of their creation: `-m/--manual` (no AI, manual player input), `-s/--stand` (always chooses to stand),
-and `-r/--rules` (a more basic rules-based AI, with no card-counting).
+order of their creation: `-m/--manual` (no AI, manual player input), `-s/--stand` (always chooses to stand), 
+`-r/--rules` (a more basic rules-based AI, with no card-counting), and '-ac/--advanced_counting' (card counting with derivations from basic strategy).
