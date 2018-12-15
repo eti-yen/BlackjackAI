@@ -35,7 +35,7 @@ the hand), and will make bets accordingly. Most play decisions (hit vs. stand, a
 the tables found both in the linked pages and on Wikipedia, detailing the most mathematically advantageous
 moves in all possible situations.
 
-# Notes
+## Notes
 
 - To get a good read on the AI's skill, it is recommended to let it play a large number of hands. Something
 like
