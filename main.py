@@ -683,7 +683,7 @@ if __name__ == "__main__":
         help="use an AI that follows a set of rules",
         dest="ai_type", action="store_const", const=PlayerAIRules)
     ai_type_group.add_argument("-c", "--counting",
-        help="use an AI that counts cards",
+        help="use an AI that counts cards (default)",
         dest="ai_type", action="store_const", const=PlayerAICardCounting)
     ai_type_group.add_argument("-ac", "--advanced_counting",
         help="use a riskier card-counting AI that deviates from basic strategy",
@@ -699,13 +699,13 @@ if __name__ == "__main__":
         dest="num_decks", metavar="NUM",
         type=int, default=1)
     parser.add_argument("-sh", "--shuffle-at",
-        help="sets the percentage of the decks that is played before shuffling (default 0.5)",
-        dest="shuffle_at", metavar="DEC",
+        help="sets the fraction of the cards that are dealt before shuffling (default 0.5)",
+        dest="shuffle_at", metavar="FRAC",
         type=float, default=0.5)
     parser.add_argument("-q", "--quiet",
         help="remove most screen logging",
         action="store_true")
-    parser.add_argument("-l", "--log",
+    parser.add_argument("-l", "--log", metavar="FILE",
         help="save logs to a file",
         nargs="?", const="log.txt")
     args = parser.parse_args()
